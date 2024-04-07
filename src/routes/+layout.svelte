@@ -164,11 +164,11 @@
 		href="{envPublic.PUBLIC_ORIGIN ||
 			$page.url.origin}{base}/{envPublic.PUBLIC_APP_ASSETS}/apple-touch-icon.png"
 	/>
-	<link
+	<!-- <link
 		rel="manifest"
 		href="{envPublic.PUBLIC_ORIGIN ||
 			$page.url.origin}{base}/{envPublic.PUBLIC_APP_ASSETS}/manifest.json"
-	/>
+	/> -->
 
 	{#if envPublic.PUBLIC_PLAUSIBLE_SCRIPT_URL && envPublic.PUBLIC_ORIGIN}
 		<script
