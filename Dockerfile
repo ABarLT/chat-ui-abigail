@@ -25,6 +25,9 @@ RUN --mount=type=cache,target=/app/.npm \
 
 COPY --link --chown=1000 . .
 
+ARG APP_BASE
+ENV APP_BASE=${APP_BASE}
+
 RUN npm run build
 
 # mongo image
