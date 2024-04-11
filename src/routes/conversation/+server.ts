@@ -10,7 +10,7 @@ import { defaultEmbeddingModel } from "$lib/server/embeddingModels";
 import { v4 } from "uuid";
 import { authCondition } from "$lib/server/auth";
 import { usageLimits } from "$lib/server/usageLimits";
-import { MetricsServer } from "$lib/server/metrics";
+import { metrics } from "@opentelemetry/api";
 
 export const POST: RequestHandler = async ({ locals, request }) => {
 	const body = await request.text();
@@ -116,7 +116,14 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		...(values.fromShare ? { meta: { fromShareId: values.fromShare } } : {}),
 	});
 
-	MetricsServer.getMetrics().model.conversationsTotal.inc({ model: values.model });
+	const meter = metrics.getMeter("chat-ui");
+	const counter = meter.createCounter("chat-ui.conversations.count", {
+		description: "The number of conversations created",
+	});
+	counter.add(1, {
+		"chat-ui.model": values.model,
+		"user.email": locals.user?.email || undefined,
+	});
 
 	return new Response(
 		JSON.stringify({

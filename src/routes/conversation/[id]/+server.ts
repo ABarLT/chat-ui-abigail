@@ -23,6 +23,7 @@ import { usageLimits } from "$lib/server/usageLimits";
 import { MetricsServer } from "$lib/server/metrics";
 import { textGeneration } from "$lib/server/textGeneration";
 import type { TextGenerationContext } from "$lib/server/textGeneration/types";
+import { metrics as openTelemetryMetrics } from "@opentelemetry/api";
 
 export async function POST({ request, locals, params, getClientAddress }) {
 	const id = z.string().parse(params.id);
@@ -279,6 +280,15 @@ export async function POST({ request, locals, params, getClientAddress }) {
 			},
 			messageId
 		);
+
+		const meter = openTelemetryMetrics.getMeter("chat-ui");
+		const counter = meter.createCounter("chat-ui.conversations.messages.count", {
+			description: "The number of user messages created",
+		});
+		counter.add(1, {
+			"chat-ui.model": model.id,
+			"user.email": locals.user?.email || undefined,
+		});
 
 		messageToWriteToId = addChildren(
 			conv,
