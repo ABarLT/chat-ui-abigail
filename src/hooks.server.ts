@@ -16,6 +16,7 @@ import { initExitHandler } from "$lib/server/exitHandler";
 import { ObjectId } from "mongodb";
 import { refreshAssistantsCounts } from "$lib/jobs/refresh-assistants-counts";
 import { refreshConversationStats } from "$lib/jobs/refresh-conversation-stats";
+import { setupActiveUserTelemetry } from "$lib/telemetry/activeUsers";
 
 // TODO: move this code on a started server hook, instead of using a "building" flag
 if (!building) {
@@ -32,6 +33,7 @@ if (!building) {
 
 	// Init AbortedGenerations refresh process
 	AbortedGenerations.getInstance();
+	setupActiveUserTelemetry();
 }
 
 export const handleError: HandleServerError = async ({ error, event }) => {
