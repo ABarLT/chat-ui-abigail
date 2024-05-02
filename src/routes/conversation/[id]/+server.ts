@@ -286,7 +286,7 @@ export async function POST({ request, locals, params, getClientAddress }) {
 			description: "The number of user messages created",
 		});
 		counter.add(1, {
-			"chat-ui.model": "values.model",
+			"chat-ui.model": model.id,
 			"user.username": locals.user?.username || "unknown",
 		});
 
