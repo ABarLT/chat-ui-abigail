@@ -1,0 +1,27 @@
+version: "3.1"
+
+services:
+  mongo:
+    image: mongo
+    restart: unless-stopped
+
+  chat-ui:
+    build:
+      context: .
+      args:
+        - APP_BASE=/chat
+    volumes:
+      - .env.local:/app/.env.local:ro
+      - ~/.aws/:/home/user/.aws
+    environment:
+      - OTEL_LOG_LEVEL=error
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
+      - OTEL_SERVICE_NAME=LanzaChat
+      - OTEL_OTLP_PROTOCOL=http
+      - OTEL_NODE_ENABLED_INSTRUMENTATIONS=http,mongodb
+      - AWS_PROFILE=${AWS_PROFILE:-default}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

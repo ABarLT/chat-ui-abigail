@@ -59,6 +59,7 @@
 		"@aws-sdk/credential-providers": "^3.592.0",
 		"@cliqz/adblocker-playwright": "^1.27.2",
 		"@gradio/client": "^0.19.4",
+		"@aws-sdk/client-bedrock-runtime": "^3.602.0",
 		"@huggingface/hub": "^0.5.1",
 		"@huggingface/inference": "^2.7.0",
 		"@iconify-json/bi": "^1.1.21",
