@@ -5,6 +5,7 @@ import {
 	BedrockRuntimeClient,
 	InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
 
 export const endpointBedrockParametersSchema = z.object({
 	weight: z.number().int().positive().default(1),
@@ -12,6 +13,24 @@ export const endpointBedrockParametersSchema = z.object({
 	region: z.string().default("us-east-1"),
 	model: z.any(),
 	anthropicVersion: z.string().default("bedrock-2023-05-31"),
+	multimodal: z
+		.object({
+			image: createImageProcessorOptionsValidator({
+				supportedMimeTypes: [
+					"image/png",
+					"image/jpeg",
+					"image/webp",
+					"image/avif",
+					"image/tiff",
+					"image/gif",
+				],
+				preferredMimeType: "image/webp",
+				maxSizeInMB: Infinity,
+				maxWidth: 4096,
+				maxHeight: 4096,
+			}),
+		})
+		.default({}),
 });
 
 export async function endpointBedrock(
@@ -20,23 +39,17 @@ export async function endpointBedrock(
 	const client = new BedrockRuntimeClient({
 		region: input.region,
 	});
+	const imageProcessor = makeImageProcessor(input.multimodal.image);
 
 	return async ({ messages, preprompt, generateSettings }) => {
 		let system = preprompt;
+		// Use the first message as the system prompt if it's of type "system"
 		if (messages?.[0]?.from === "system") {
 			system = messages[0].content;
+			messages = messages.slice(1); // Remove the first system message from the array
 		}
-		const messagesFormatted = messages
-			.filter((message) => message.from !== "system")
-			.map((message) => ({
-				role: message.from,
-				content: [
-					{
-						type: "text",
-						text: message.content,
-					},
-				],
-			}));
+
+		const formattedMessages = await prepareMessages(messages, imageProcessor);
 
 		let tokenId = 0;
 		const parameters = { ...input.model.parameters, ...generateSettings };
@@ -47,7 +60,7 @@ export async function endpointBedrock(
 					JSON.stringify({
 						anthropic_version: input.anthropicVersion,
 						max_tokens: parameters.max_new_tokens ? parameters.max_new_tokens : 4096,
-						messages: messagesFormatted,
+						messages: formattedMessages,
 						system,
 					}),
 					"utf-8"
@@ -93,4 +106,36 @@ export async function endpointBedrock(
 			}
 		})();
 	};
+}
+
+// Prepare the messages excluding system prompts
+async function prepareMessages(messages, imageProcessor) {
+	const formattedMessages = [];
+
+	for (const message of messages) {
+		const content = [];
+
+		if (message.files?.length) {
+			content.push(...(await prepareFiles(imageProcessor, message.files)));
+		}
+		content.push({ type: "text", text: message.content });
+
+		const lastMessage = formattedMessages[formattedMessages.length - 1];
+		if (lastMessage && lastMessage.role === message.from) {
+			// If the last message has the same role, merge the content
+			lastMessage.content.push(...content);
+		} else {
+			formattedMessages.push({ role: message.from, content });
+		}
+	}
+	return formattedMessages;
+}
+
+// Process files and convert them to base64 encoded strings
+async function prepareFiles(imageProcessor, files) {
+	const processedFiles = await Promise.all(files.map(imageProcessor));
+	return processedFiles.map((file) => ({
+		type: "image",
+		source: { type: "base64", media_type: "image/jpeg", data: file.image.toString("base64") },
+	}));
 }
