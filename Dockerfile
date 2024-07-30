@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 # read the doc: https://huggingface.co/docs/hub/spaces-sdks-docker
 # you will also find guides on how best to write your Dockerfile
+ARG INCLUDE_DB=false
+
+# stage that install the dependencies
 FROM node:20 AS builder-production
 
 WORKDIR /app
@@ -11,6 +14,10 @@ RUN --mount=type=cache,target=/app/.npm \
         npm ci --omit=dev
 
 FROM builder-production AS builder
+
+ARG APP_BASE=
+ARG PUBLIC_APP_COLOR=blue
+ENV BODY_SIZE_LIMIT=15728640
 
 RUN --mount=type=cache,target=/app/.npm \
         npm set cache /app/.npm && \
