@@ -10,6 +10,7 @@ import type OpenAI from "openai";
 import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
 import type { MessageFile } from "$lib/types/Message";
 import type { EndpointMessage } from "../endpoints";
+import { processTextDocument, supportedDocumentMimeTypes } from "../../tools/docParser";
 
 export const endpointOAIParametersSchema = z.object({
 	weight: z.number().int().positive().default(1),
@@ -42,14 +43,6 @@ export const endpointOAIParametersSchema = z.object({
 		})
 		.default({}),
 });
-
-const supportedDocumentMimeTypes = [
-	"application/pdf",
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-	"text/markdown",
-	"application/vnd.ms-outlook",
-];
 
 export async function endpointOai(
 	input: z.input<typeof endpointOAIParametersSchema>
@@ -138,8 +131,6 @@ export async function endpointOai(
 				body: { ...body, ...extraBody },
 			});
 
-			console.log("Made it almost to openAIChatToTextGenerationStream");
-
 			return openAIChatToTextGenerationStream(openChatAICompletion);
 		};
 	} else {
@@ -200,21 +191,7 @@ async function prepareFiles(
 					},
 				};
 			} else if (supportedDocumentMimeTypes.includes(file.mime)) {
-				// For text documents, we need to handle both string and Blob values
-				// let textContent: string;
-				// if (typeof file.value === "string") {
-				// 	// If it's a string, we assume it's already the text content
-				// 	console.log("FILE WAS ALREADY A STRING in preparefiles");
-				// 	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) =>
-				// 		res.blob()
-				// 	);
-				// 	textContent = await processTextDocument(fileBlob);
-				// } else if (file.value instanceof Blob) {
-				// 	// If it's a Blob, we need to process it
 				const textContent = await processTextDocument(file);
-				// } else {
-				// 	throw new Error("Invalid file value type");
-				// }
 				return { type: "text" as const, text: textContent };
 			} else {
 				throw new Error(`Unsupported file type: ${file.mime}`);
@@ -222,122 +199,3 @@ async function prepareFiles(
 		})
 	);
 }
-// Function to convert MIME type to short extension
-function mimeToExtension(mimeType: string): string {
-	const mimeToExt: { [key: string]: string } = {
-		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-		"application/pdf": "pdf",
-		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-		"text/markdown": "md",
-		"application/vnd.ms-outlook": "msg",
-		// Add csv, excel
-	};
-	return mimeToExt[mimeType] || mimeType.split("/")[1].split("+")[0];
-}
-
-async function processTextDocument(file: {
-	name: string;
-	mime: string;
-	value: string;
-	type: string;
-}): Promise<string> {
-	console.log("File name:", file.name);
-	console.log("File MIME:", file.mime);
-	console.log("File type:", file.type);
-
-	// Convert base64 to Blob
-	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) => res.blob());
-
-	// Create a filename with the correct extension
-	let filename = file.name;
-	if (!filename.includes(".")) {
-		const extension = mimeToExtension(file.mime);
-		filename = `${file.name}.${extension}`;
-	}
-
-	console.log("Final filename:", filename);
-
-	// Create FormData and append the file
-	const formData = new FormData();
-	formData.append("file", fileBlob, filename);
-
-	// Send the request to FastAPI
-	const response = await fetch("http://localhost:8000/", {
-		method: "POST",
-		body: formData,
-	});
-
-	if (!response.ok) {
-		throw new Error(`Failed to parse document: ${response.statusText}`);
-	}
-
-	let parsedText = await response.text();
-
-	// Truncate long documents (adjust the limit as needed)
-	if (parsedText.length > 30_000) {
-		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
-	}
-
-	console.log("Parsed text:", parsedText);
-
-	return parsedText;
-}
-// async function processTextDocument(fileOrContent: Blob | string): Promise<string> {
-// 	let file: File;
-// 	if (typeof fileOrContent === "string") {
-// 		// If it's a string, assume it's a data URL
-// 		const [header, base64Data] = fileOrContent.split(",");
-// 		const [, mimeType] = header.match(/^data:(.*?);base64$/) || [];
-
-// 		if (!mimeType) {
-// 			throw new Error("Invalid data URL");
-// 		}
-
-// 		// Convert base64 to blob
-// 		const byteCharacters = atob(base64Data);
-// 		const byteNumbers = new Array(byteCharacters.length);
-// 		for (let i = 0; i < byteCharacters.length; i++) {
-// 			byteNumbers[i] = byteCharacters.charCodeAt(i);
-// 		}
-// 		const byteArray = new Uint8Array(byteNumbers);
-// 		const blob = new Blob([byteArray], { type: mimeType });
-
-// 		// Extract file extension from MIME type
-// 		const fileExtension = mimeType.split("/")[1];
-// 		file = new File([blob], `document.${fileExtension}`, { type: mimeType });
-// 	} else if (fileOrContent instanceof Blob) {
-// 		// If it's already a Blob, just convert to File
-// 		const fileExtension = fileOrContent.type.split("/")[1];
-// 		file = new File([fileOrContent], `document.${fileExtension}`, { type: fileOrContent.type });
-// 	} else {
-// 		throw new Error("Invalid file content");
-// 	}
-
-// 	console.log("File name:", file.name);
-// 	console.log("File size:", file.size, "bytes");
-// 	console.log("File type:", file.type);
-
-// 	const url = "http://localhost:8000/";
-// 	const formData = new FormData();
-// 	formData.append("file", file);
-
-// 	try {
-// 		const response = await fetch(url, {
-// 			method: "POST",
-// 			body: formData,
-// 		});
-
-// 		if (!response.ok) {
-// 			const errorText = await response.text();
-// 			console.error("Server responded with:", response.status, errorText);
-// 			throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-// 		}
-
-// 		const responseText = await response.text();
-// 		console.log("RESPONSE TEXT", responseText);
-// 		return responseText;
-// 	} catch (error) {
-// 		console.error("Error processing document:", error);
-// 		throw error;
-// 	}
-// }
