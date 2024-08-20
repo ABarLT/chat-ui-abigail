@@ -144,18 +144,25 @@ async function prepareMessages(
 	return Promise.all(
 		messages.map(async (message) => {
 			if (message.from === "user") {
+				const processedFiles = await prepareFiles(imageProcessor, message.files ?? []);
+				const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+					...processedFiles,
+					{ type: "text", text: message.content },
+				];
+
 				return {
 					role: message.from,
-					content: [
-						...(await prepareFiles(imageProcessor, message.files ?? [])),
-						{ type: "text", text: message.content },
-					],
-				};
+					content: content.filter((item) =>
+						item.type === "text" ? item.text.trim() !== "" : true
+					),
+				} as OpenAI.Chat.Completions.ChatCompletionUserMessageParam;
 			}
 			return {
 				role: message.from,
 				content: message.content,
-			};
+			} as
+				| OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam
+				| OpenAI.Chat.Completions.ChatCompletionSystemMessageParam;
 		})
 	);
 }
@@ -163,12 +170,150 @@ async function prepareMessages(
 async function prepareFiles(
 	imageProcessor: ReturnType<typeof makeImageProcessor>,
 	files: MessageFile[]
-): Promise<OpenAI.Chat.Completions.ChatCompletionContentPartImage[]> {
-	const processedFiles = await Promise.all(files.map(imageProcessor));
-	return processedFiles.map((file) => ({
-		type: "image_url" as const,
-		image_url: {
-			url: `data:${file.mime};base64,${file.image.toString("base64")}`,
-		},
-	}));
+): Promise<OpenAI.Chat.Completions.ChatCompletionContentPart[]> {
+	console.log("prepareFiles input:", files);
+	return Promise.all(
+		files.map(async (file) => {
+			console.log("File type:", file.type);
+			console.log("File value type:", typeof file.value);
+			console.log("File mime:", file.mime);
+			if (file.mime.startsWith("image/")) {
+				// For images, we assume the value is a base64 string
+				if (typeof file.value !== "string") {
+					throw new Error("Image files must be provided as base64 strings");
+				}
+				const processedImage = await imageProcessor(file);
+				return {
+					type: "image_url" as const,
+					image_url: {
+						url: `data:${processedImage.mime};base64,${processedImage.image.toString("base64")}`,
+					},
+				};
+			} else if (
+				[
+					"application/pdf",
+					"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+					"text/markdown",
+					"application/vnd.ms-outlook",
+				].includes(file.mime)
+			) {
+				// For text documents, we need to handle both string and Blob values
+				// let textContent: string;
+				// if (typeof file.value === "string") {
+				// 	// If it's a string, we assume it's already the text content
+				// 	console.log("FILE WAS ALREADY A STRING in preparefiles");
+				// 	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) =>
+				// 		res.blob()
+				// 	);
+				// 	textContent = await processTextDocument(fileBlob);
+				// } else if (file.value instanceof Blob) {
+				// 	// If it's a Blob, we need to process it
+				const textContent = await processTextDocument(file);
+				// } else {
+				// 	throw new Error("Invalid file value type");
+				// }
+				return { type: "text" as const, text: textContent };
+			} else {
+				throw new Error(`Unsupported file type: ${file.mime}`);
+			}
+		})
+	);
 }
+async function processTextDocument(file: MessageFile): Promise<string> {
+	console.log("File name:", file.name);
+	console.log("File type:", file.type);
+
+	// Convert base64 to Blob
+	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) => res.blob());
+
+	// Create a filename based on the file type
+	let filename = file.name;
+	if (!filename.includes(".")) {
+		const extension = file.mime.split("/")[1];
+		console.log("Extension:", extension);
+		filename = `${file.name}.${extension}`;
+	}
+
+	// Create FormData and append the file
+	const formData = new FormData();
+	formData.append("file", fileBlob, filename);
+
+	// Send the request to FastAPI
+	const response = await fetch("http://localhost:8000/", {
+		method: "POST",
+		body: formData,
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to parse document: ${response.statusText}`);
+	}
+
+	let parsedText = await response.text();
+
+	// Truncate long documents (adjust the limit as needed)
+	if (parsedText.length > 30_000) {
+		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
+	}
+
+	return parsedText;
+}
+
+// async function processTextDocument(fileOrContent: Blob | string): Promise<string> {
+// 	let file: File;
+// 	if (typeof fileOrContent === "string") {
+// 		// If it's a string, assume it's a data URL
+// 		const [header, base64Data] = fileOrContent.split(",");
+// 		const [, mimeType] = header.match(/^data:(.*?);base64$/) || [];
+
+// 		if (!mimeType) {
+// 			throw new Error("Invalid data URL");
+// 		}
+
+// 		// Convert base64 to blob
+// 		const byteCharacters = atob(base64Data);
+// 		const byteNumbers = new Array(byteCharacters.length);
+// 		for (let i = 0; i < byteCharacters.length; i++) {
+// 			byteNumbers[i] = byteCharacters.charCodeAt(i);
+// 		}
+// 		const byteArray = new Uint8Array(byteNumbers);
+// 		const blob = new Blob([byteArray], { type: mimeType });
+
+// 		// Extract file extension from MIME type
+// 		const fileExtension = mimeType.split("/")[1];
+// 		file = new File([blob], `document.${fileExtension}`, { type: mimeType });
+// 	} else if (fileOrContent instanceof Blob) {
+// 		// If it's already a Blob, just convert to File
+// 		const fileExtension = fileOrContent.type.split("/")[1];
+// 		file = new File([fileOrContent], `document.${fileExtension}`, { type: fileOrContent.type });
+// 	} else {
+// 		throw new Error("Invalid file content");
+// 	}
+
+// 	console.log("File name:", file.name);
+// 	console.log("File size:", file.size, "bytes");
+// 	console.log("File type:", file.type);
+
+// 	const url = "http://localhost:8000/";
+// 	const formData = new FormData();
+// 	formData.append("file", file);
+
+// 	try {
+// 		const response = await fetch(url, {
+// 			method: "POST",
+// 			body: formData,
+// 		});
+
+// 		if (!response.ok) {
+// 			const errorText = await response.text();
+// 			console.error("Server responded with:", response.status, errorText);
+// 			throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+// 		}
+
+// 		const responseText = await response.text();
+// 		console.log("RESPONSE TEXT", responseText);
+// 		return responseText;
+// 	} catch (error) {
+// 		console.error("Error processing document:", error);
+// 		throw error;
+// 	}
+// }
