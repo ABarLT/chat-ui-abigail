@@ -43,6 +43,14 @@ export const endpointOAIParametersSchema = z.object({
 		.default({}),
 });
 
+const supportedDocumentMimeTypes = [
+	"application/pdf",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	"text/markdown",
+	"application/vnd.ms-outlook",
+];
+
 export async function endpointOai(
 	input: z.input<typeof endpointOAIParametersSchema>
 ): Promise<Endpoint> {
@@ -130,6 +138,8 @@ export async function endpointOai(
 				body: { ...body, ...extraBody },
 			});
 
+			console.log("Made it almost to openAIChatToTextGenerationStream");
+
 			return openAIChatToTextGenerationStream(openChatAICompletion);
 		};
 	} else {
@@ -189,14 +199,7 @@ async function prepareFiles(
 						url: `data:${processedImage.mime};base64,${processedImage.image.toString("base64")}`,
 					},
 				};
-			} else if (
-				[
-					"application/pdf",
-					"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-					"text/markdown",
-					"application/vnd.ms-outlook",
-				].includes(file.mime)
-			) {
+			} else if (supportedDocumentMimeTypes.includes(file.mime)) {
 				// For text documents, we need to handle both string and Blob values
 				// let textContent: string;
 				// if (typeof file.value === "string") {
@@ -219,20 +222,40 @@ async function prepareFiles(
 		})
 	);
 }
-async function processTextDocument(file: MessageFile): Promise<string> {
+// Function to convert MIME type to short extension
+function mimeToExtension(mimeType: string): string {
+	const mimeToExt: { [key: string]: string } = {
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+		"application/pdf": "pdf",
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+		"text/markdown": "md",
+		"application/vnd.ms-outlook": "msg",
+		// Add csv, excel
+	};
+	return mimeToExt[mimeType] || mimeType.split("/")[1].split("+")[0];
+}
+
+async function processTextDocument(file: {
+	name: string;
+	mime: string;
+	value: string;
+	type: string;
+}): Promise<string> {
 	console.log("File name:", file.name);
+	console.log("File MIME:", file.mime);
 	console.log("File type:", file.type);
 
 	// Convert base64 to Blob
 	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) => res.blob());
 
-	// Create a filename based on the file type
+	// Create a filename with the correct extension
 	let filename = file.name;
 	if (!filename.includes(".")) {
-		const extension = file.mime.split("/")[1];
-		console.log("Extension:", extension);
+		const extension = mimeToExtension(file.mime);
 		filename = `${file.name}.${extension}`;
 	}
+
+	console.log("Final filename:", filename);
 
 	// Create FormData and append the file
 	const formData = new FormData();
@@ -255,9 +278,10 @@ async function processTextDocument(file: MessageFile): Promise<string> {
 		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
 	}
 
+	console.log("Parsed text:", parsedText);
+
 	return parsedText;
 }
-
 // async function processTextDocument(fileOrContent: Blob | string): Promise<string> {
 // 	let file: File;
 // 	if (typeof fileOrContent === "string") {
