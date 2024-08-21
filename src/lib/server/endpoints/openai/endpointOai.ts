@@ -172,12 +172,8 @@ async function prepareFiles(
 	imageProcessor: ReturnType<typeof makeImageProcessor>,
 	files: MessageFile[]
 ): Promise<OpenAI.Chat.Completions.ChatCompletionContentPart[]> {
-	console.log("prepareFiles input:", files);
 	return Promise.all(
 		files.map(async (file) => {
-			console.log("File type:", file.type);
-			console.log("File value type:", typeof file.value);
-			console.log("File mime:", file.mime);
 			if (file.mime.startsWith("image/")) {
 				// For images, we assume the value is a base64 string
 				if (typeof file.value !== "string") {

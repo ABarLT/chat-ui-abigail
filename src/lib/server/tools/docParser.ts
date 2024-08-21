@@ -23,26 +23,19 @@ function mimeToExtension(mimeType: string): string {
 }
 
 export async function processTextDocument(file: MessageFile): Promise<string> {
-	console.log("File name:", file.name);
-	console.log("File MIME:", file.mime);
-	console.log("File type:", file.type);
-
 	// Convert base64 to Blob
 	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) => res.blob());
 
 	// Create a filename with the correct extension
 	const extension = mimeToExtension(file.mime);
 	const filename = `${file.name}.${extension}`;
-
-	console.log("Final filename:", filename);
-
 	// Create FormData and append the file
 	const formData = new FormData();
 	formData.append("file", fileBlob, filename);
 
 	// Send the request to FastAPI
 	// TODO: set the URL to a variable
-	const response = await fetch("http://localhost:8000/", {
+	const response = await fetch("http://localhost:8000/parse-file", {
 		method: "POST",
 		body: formData,
 	});
@@ -61,8 +54,6 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	// Concatenate the filename to the beginning of the parsed text to give model better context
 	// inputted with XML tags for parsability
 	parsedText = `<${filename}>${parsedText}</${filename}>`;
-
-	console.log("Parsed text:", parsedText);
 
 	return parsedText;
 }
