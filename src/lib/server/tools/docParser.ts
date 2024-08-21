@@ -31,11 +31,8 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	const fileBlob = await fetch(`data:${file.mime};base64,${file.value}`).then((res) => res.blob());
 
 	// Create a filename with the correct extension
-	let filename = file.name;
-	if (!filename.includes(".")) {
-		const extension = mimeToExtension(file.mime);
-		filename = `${file.name}.${extension}`;
-	}
+	const extension = mimeToExtension(file.mime);
+	const filename = `${file.name}.${extension}`;
 
 	console.log("Final filename:", filename);
 
@@ -56,10 +53,14 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 
 	let parsedText = await response.text();
 
-	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenizer
+	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenization
 	if (parsedText.length > 30_000) {
 		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
 	}
+
+	// Concatenate the filename to the beginning of the parsed text to give model better context
+	// inputted with XML tags for parsability
+	parsedText = `<${filename}>${parsedText}</${filename}>`;
 
 	console.log("Parsed text:", parsedText);
 
