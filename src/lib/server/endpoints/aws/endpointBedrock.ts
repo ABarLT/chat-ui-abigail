@@ -6,6 +6,8 @@ import {
 	InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
+import { processTextDocument, supportedDocumentMimeTypes } from "../../tools/docParser";
+import type { MessageFile } from "$lib/types/Message";
 
 export const endpointBedrockParametersSchema = z.object({
 	weight: z.number().int().positive().default(1),
@@ -131,11 +133,26 @@ async function prepareMessages(messages, imageProcessor) {
 	return formattedMessages;
 }
 
-// Process files and convert them to base64 encoded strings
-async function prepareFiles(imageProcessor, files) {
-	const processedFiles = await Promise.all(files.map(imageProcessor));
-	return processedFiles.map((file) => ({
-		type: "image",
-		source: { type: "base64", media_type: "image/jpeg", data: file.image.toString("base64") },
-	}));
+// Process files and convert them to appropriate formats
+async function prepareFiles(imageProcessor, files: MessageFile[]) {
+	return Promise.all(
+		files.map(async (file) => {
+			if (file.mime.startsWith("image/")) {
+				const processedImage = await imageProcessor(file);
+				return {
+					type: "image",
+					source: {
+						type: "base64",
+						media_type: processedImage.mime,
+						data: processedImage.image.toString("base64"),
+					},
+				};
+			} else if (supportedDocumentMimeTypes.includes(file.mime)) {
+				const textContent = await processTextDocument(file);
+				return { type: "text", text: textContent };
+			} else {
+				throw new Error(`Unsupported file type: ${file.mime}`);
+			}
+		})
+	);
 }
