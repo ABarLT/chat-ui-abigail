@@ -1,6 +1,7 @@
 // docParser.ts
 
 import type { MessageFile } from "../../types/Message";
+import { env } from "$env/dynamic/private";
 
 const supportedDocumentMimeTypes = [
 	"application/pdf",
@@ -10,7 +11,7 @@ const supportedDocumentMimeTypes = [
 	"application/vnd.ms-outlook",
 ];
 
-function mimeToExtension(mimeType: string): string {
+export function mimeToExtension(mimeType: string): string {
 	const mimeToExt: { [key: string]: string } = {
 		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 		"application/pdf": "pdf",
@@ -34,8 +35,7 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	formData.append("file", fileBlob, filename);
 
 	// Send the request to FastAPI
-	// TODO: set the URL to a variable
-	const response = await fetch("http://localhost:8000/parse-file", {
+	const response = await fetch(env.DOC_PARSER_API_URL, {
 		method: "POST",
 		body: formData,
 	});
