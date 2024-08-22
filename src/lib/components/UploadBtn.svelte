@@ -12,7 +12,17 @@
 	const onFileChange = (e: Event) => {
 		if (!e.target) return;
 		const target = e.target as HTMLInputElement;
-		files = [...files, ...(target.files ?? [])];
+		const newFiles = [...(target.files ?? [])].map((file) => {
+			const isMarkdown =
+				file.name.toLowerCase().endsWith(".md") || file.name.toLowerCase().endsWith(".markdown");
+			// If it's a Markdown file set it to text/markdown. Markdown mime types are not inferred.
+			return isMarkdown
+				? new File([file], file.name, {
+						type: "text/markdown",
+				  })
+				: file;
+		});
+		files = [...files, ...(newFiles ?? [])];
 	};
 </script>
 

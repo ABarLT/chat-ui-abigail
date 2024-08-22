@@ -50,7 +50,11 @@
 				<dd class="text-sm">
 					{truncateMiddle(file.name, 28)}
 				</dd>
-				<dt class="text-xs text-gray-400">{file.mime.split("/")[1].toUpperCase()}</dt>
+				<dt class="text-xs text-gray-400">
+					{file.mime.includes("/")
+						? file.mime.split("/")[1].toUpperCase()
+						: file.mime.toUpperCase()}
+				</dt>
 			</dl>
 		</div>
 	{/if}
