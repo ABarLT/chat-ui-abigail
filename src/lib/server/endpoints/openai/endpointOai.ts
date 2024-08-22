@@ -165,9 +165,7 @@ async function prepareMessages(
 			return {
 				role: message.from,
 				content: message.content,
-			} as
-				| OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam
-				| OpenAI.Chat.Completions.ChatCompletionSystemMessageParam;
+			};
 		})
 	);
 }
