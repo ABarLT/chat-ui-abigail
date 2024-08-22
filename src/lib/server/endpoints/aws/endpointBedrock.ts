@@ -6,7 +6,11 @@ import {
 	InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
-import { processTextDocument, supportedDocumentMimeTypes } from "../../tools/docParser";
+import {
+	processTextDocument,
+	mimeToExtension,
+	supportedDocumentMimeTypes,
+} from "../../tools/docParser";
 import type { MessageFile } from "$lib/types/Message";
 
 export const endpointBedrockParametersSchema = z.object({
@@ -151,7 +155,11 @@ async function prepareFiles(imageProcessor, files: MessageFile[]) {
 				const textContent = await processTextDocument(file);
 				return { type: "text", text: textContent };
 			} else {
-				throw new Error(`Unsupported file type: ${file.mime}`);
+				throw new Error(
+					`Unsupported file type: ${file.mime}\nSupported types: ${supportedDocumentMimeTypes
+						.map(mimeToExtension)
+						.join(", ")}`
+				);
 			}
 		})
 	);

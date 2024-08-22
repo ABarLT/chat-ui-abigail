@@ -10,7 +10,11 @@ import type OpenAI from "openai";
 import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
 import type { MessageFile } from "$lib/types/Message";
 import type { EndpointMessage } from "../endpoints";
-import { processTextDocument, supportedDocumentMimeTypes } from "../../tools/docParser";
+import {
+	processTextDocument,
+	mimeToExtension,
+	supportedDocumentMimeTypes,
+} from "../../tools/docParser";
 
 export const endpointOAIParametersSchema = z.object({
 	weight: z.number().int().positive().default(1),
@@ -190,7 +194,11 @@ async function prepareFiles(
 				const textContent = await processTextDocument(file);
 				return { type: "text" as const, text: textContent };
 			} else {
-				throw new Error(`Unsupported file type: ${file.mime}`);
+				throw new Error(
+					`Unsupported file type: ${file.mime}\nSupported types: ${supportedDocumentMimeTypes
+						.map(mimeToExtension)
+						.join(", ")}`
+				);
 			}
 		})
 	);
