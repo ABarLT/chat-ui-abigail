@@ -47,8 +47,8 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	let parsedText = await response.text();
 
 	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenization
-	if (parsedText.length > 30_000) {
-		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
+	if (parsedText.length > 300_000) {
+		parsedText = parsedText.slice(0, 300_000) + "\n\n... (truncated)";
 		parsedText = `<${filename}>${parsedText}</${filename}>`;
 		// Add instructions to the model to inform the user that the document was truncated
 		parsedText =
