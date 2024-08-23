@@ -49,12 +49,16 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenization
 	if (parsedText.length > 30_000) {
 		parsedText = parsedText.slice(0, 30_000) + "\n\n... (truncated)";
+		parsedText = `<${filename}>${parsedText}</${filename}>`;
+		// Add instructions to the model to inform the user that the document was truncated
+		parsedText =
+			parsedText +
+			"<instructions>Inform the user that the document was truncated because it was too long before giving the rest of your response.</instructions>";
+	} else {
+		// Concatenate the filename to the beginning of the parsed text to give model better context
+		// inputted with XML tags for parsability
+		parsedText = `<${filename}>${parsedText}</${filename}>`;
 	}
-
-	// Concatenate the filename to the beginning of the parsed text to give model better context
-	// inputted with XML tags for parsability
-	parsedText = `<${filename}>${parsedText}</${filename}>`;
-
 	return parsedText;
 }
 
