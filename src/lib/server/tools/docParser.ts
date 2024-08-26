@@ -46,17 +46,27 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 		const formData = new FormData();
 		formData.append("file", fileBlob, filename);
 
-		// Send the request to FastAPI
-		const response = await fetch(env.DOC_PARSER_API_URL, {
-			method: "POST",
-			body: formData,
-		});
+		// Wrap the fetch request in a try-catch to handle errors
+		try {
+			// Send the request to FastAPI
+			const response = await fetch(env.DOC_PARSER_API_URL, {
+				method: "POST",
+				body: formData,
+			});
 
-		if (!response.ok) {
-			throw new Error(`Failed to parse document: ${response.statusText}`);
+			if (!response.ok) {
+				throw new Error(`Failed to parse document: ${response.statusText}`);
+			}
+
+			parsedText = await response.text();
+		} catch (error) {
+			if (error instanceof Error) {
+				const errorMessage = `An error occurred while processing the document: ${error.message}`;
+				throw new Error(errorMessage);
+			} else {
+				throw new Error("An unexpected error occurred while processing the document.");
+			}
 		}
-
-		parsedText = await response.text();
 	}
 
 	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenization
@@ -74,5 +84,4 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	}
 	return parsedText;
 }
-
 export { supportedDocumentMimeTypes };
