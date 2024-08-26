@@ -1,5 +1,3 @@
-// docParser.ts
-
 import type { MessageFile } from "../../types/Message";
 import { env } from "$env/dynamic/private";
 
@@ -9,6 +7,7 @@ const supportedDocumentMimeTypes = [
 	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	"text/markdown",
 	"application/vnd.ms-outlook",
+	"text/csv",
 ];
 
 export function mimeToExtension(mimeType: string): string {
@@ -18,9 +17,15 @@ export function mimeToExtension(mimeType: string): string {
 		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 		"text/markdown": "md",
 		"application/vnd.ms-outlook": "msg",
-		// Add csv, excel
+		"text/csv": "csv",
 	};
 	return mimeToExt[mimeType] || mimeType.split("/")[1].split("+")[0];
+}
+
+async function convertCsvToString(fileBlob: Blob): Promise<string> {
+	// Convert Blob to text
+	const text = await fileBlob.text();
+	return text;
 }
 
 export async function processTextDocument(file: MessageFile): Promise<string> {
@@ -30,21 +35,29 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 	// Create a filename with the correct extension
 	const extension = mimeToExtension(file.mime);
 	const filename = `${file.name}.${extension}`;
-	// Create FormData and append the file
-	const formData = new FormData();
-	formData.append("file", fileBlob, filename);
 
-	// Send the request to FastAPI
-	const response = await fetch(env.DOC_PARSER_API_URL, {
-		method: "POST",
-		body: formData,
-	});
+	let parsedText = "";
 
-	if (!response.ok) {
-		throw new Error(`Failed to parse document: ${response.statusText}`);
+	if (file.mime === "text/csv") {
+		// Convert CSV to text string
+		parsedText = await convertCsvToString(fileBlob);
+	} else {
+		// Create FormData and append the file
+		const formData = new FormData();
+		formData.append("file", fileBlob, filename);
+
+		// Send the request to FastAPI
+		const response = await fetch(env.DOC_PARSER_API_URL, {
+			method: "POST",
+			body: formData,
+		});
+
+		if (!response.ok) {
+			throw new Error(`Failed to parse document: ${response.statusText}`);
+		}
+
+		parsedText = await response.text();
 	}
-
-	let parsedText = await response.text();
 
 	// Truncate long documents (adjust the limit as needed) TODO: do this based on tokenization
 	if (parsedText.length > 300_000) {
