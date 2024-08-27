@@ -7,7 +7,7 @@ const supportedDocumentMimeTypes = [
 	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	"text/markdown",
 	"application/vnd.ms-outlook",
-	"text/csv",
+	"text/*",
 ];
 
 export function mimeToExtension(mimeType: string): string {
@@ -17,12 +17,11 @@ export function mimeToExtension(mimeType: string): string {
 		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 		"text/markdown": "md",
 		"application/vnd.ms-outlook": "msg",
-		"text/csv": "csv",
 	};
 	return mimeToExt[mimeType] || mimeType.split("/")[1].split("+")[0];
 }
 
-async function convertCsvToString(fileBlob: Blob): Promise<string> {
+async function convertBlobToString(fileBlob: Blob): Promise<string> {
 	// Convert Blob to text
 	const text = await fileBlob.text();
 	return text;
@@ -38,15 +37,13 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 
 	let parsedText = "";
 
-	if (file.mime === "text/csv") {
-		// Convert CSV to text string
-		parsedText = await convertCsvToString(fileBlob);
+	if (file.mime.startsWith("text/")) {
+		parsedText = await convertBlobToString(fileBlob);
 	} else {
 		// Create FormData and append the file
 		const formData = new FormData();
 		formData.append("file", fileBlob, filename);
 
-		// Wrap the fetch request in a try-catch to handle errors
 		try {
 			// Send the request to FastAPI
 			const response = await fetch(env.DOC_PARSER_API_URL, {

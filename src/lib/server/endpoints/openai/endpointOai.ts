@@ -188,7 +188,7 @@ async function prepareFiles(
 						url: `data:${processedImage.mime};base64,${processedImage.image.toString("base64")}`,
 					},
 				};
-			} else if (supportedDocumentMimeTypes.includes(file.mime)) {
+			} else if (file.mime.startsWith("text/") || supportedDocumentMimeTypes.includes(file.mime)) {
 				const textContent = await processTextDocument(file);
 				return { type: "text" as const, text: textContent };
 			} else {
