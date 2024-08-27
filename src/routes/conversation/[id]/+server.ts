@@ -195,10 +195,9 @@ export async function POST({ request, locals, params, getClientAddress }) {
 				return new File([blob], file.name, { type: file.mime });
 			}) ?? [];
 
-	// check sizes
-	// todo: make configurable
-	if (b64Files.some((file) => file.size > 10 * 1024 * 1024)) {
-		throw error(413, "File too large, should be <10MB");
+	// check file sizes
+	if (b64Files.some((file) => file.size > parseInt(env.MAX_FILE_SIZE))) {
+		throw error(413, `File too large, should be <${parseInt(env.MAX_FILE_SIZE) / (1024 * 1024)}MB`);
 	}
 
 	const uploadedFiles = await Promise.all(b64Files.map((file) => uploadFile(file, conv))).then(
