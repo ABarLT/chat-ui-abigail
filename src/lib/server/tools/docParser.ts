@@ -8,6 +8,7 @@ const supportedDocumentMimeTypes = [
 	"text/markdown",
 	"application/vnd.ms-outlook",
 	"text/*",
+	"application/json",
 ];
 
 export function mimeToExtension(mimeType: string): string {
@@ -17,6 +18,8 @@ export function mimeToExtension(mimeType: string): string {
 		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 		"text/markdown": "md",
 		"application/vnd.ms-outlook": "msg",
+		"text/*": "text/*",
+		"application/json": "json",
 	};
 	return mimeToExt[mimeType] || mimeType.split("/")[1].split("+")[0];
 }
@@ -45,6 +48,9 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 
 	if (file.mime.startsWith("text/")) {
 		parsedText = await convertBlobToString(fileBlob);
+	} else if (file.mime === "application/json") {
+		const textContent = await convertBlobToString(fileBlob);
+		parsedText = `\`\`\`json\n${textContent}\n\`\`\``;
 	} else {
 		// Create FormData and append the file
 		const formData = new FormData();
