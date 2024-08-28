@@ -37,6 +37,12 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 
 	let parsedText = "";
 
+	if (fileBlob.size > parseInt(env.MAX_FILE_SIZE)) {
+		throw new Error(
+			`The file size exceeds the maximum limit of ${parseInt(env.MAX_FILE_SIZE) / (1024 * 1024)}MB.`
+		);
+	}
+
 	if (file.mime.startsWith("text/")) {
 		parsedText = await convertBlobToString(fileBlob);
 	} else {
@@ -52,6 +58,11 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 			});
 
 			if (!response.ok) {
+				if (response.status === 413) {
+					throw new Error(
+						`File exceeds the max size of ${parseInt(env.MAX_FILE_SIZE) / (1024 * 1024)}MB.`
+					);
+				}
 				throw new Error(`Failed to parse document: ${response.statusText}`);
 			}
 
