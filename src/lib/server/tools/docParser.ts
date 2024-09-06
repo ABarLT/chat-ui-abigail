@@ -90,7 +90,7 @@ export async function processTextDocument(file: MessageFile): Promise<string> {
 		// Add instructions to the model to inform the user that the document was truncated
 		parsedText =
 			parsedText +
-			"<instructions>Inform the user that the document was truncated because it was too long before giving the rest of your response.</instructions>";
+			"<instructions>Start your response with this exact sentence that is enclosed in the phrase XML tags. Don't include the XML tags themselves in your response. <phrase>A long document was truncated to fit model context limitations.</phrase>. Then give the rest of your response as you normally would. </instructions>";
 	} else {
 		// Concatenate the filename to the beginning of the parsed text to give model better context
 		// inputted with XML tags for parsability
