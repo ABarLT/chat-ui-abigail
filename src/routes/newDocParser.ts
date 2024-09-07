@@ -1,9 +1,9 @@
-import type { MessageFile } from "../../types/Message";
+import type { MessageFile } from "../lib/types/Message";
 import { env } from "$env/dynamic/private";
 // import { error } from "@sveltejs/kit";
-import { documentParsingError } from "../../../routes/store";
+import { documentParsingError } from "./store";
 import { get } from "svelte/store";
-import { setDocumentParsingError } from "../../../routes/eventhandler";
+import { setDocumentParsingError } from "./eventhandler";
 
 // class DocumentTruncatedError extends Error {
 // 	parsedText: string;

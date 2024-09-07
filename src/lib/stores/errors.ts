@@ -7,3 +7,4 @@ export const ERROR_MESSAGES = {
 };
 
 export const error = writable<string | null>(null);
+export const documentParsingError = writable<string | null>(null);

@@ -6,11 +6,16 @@ import {
 	InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { createImageProcessorOptionsValidator, makeImageProcessor } from "../images";
+// import {
+// 	processTextDocument,
+// 	mimeToExtension,
+// 	supportedDocumentMimeTypes,
+// } from "../../tools/docParser";
 import {
 	processTextDocument,
 	mimeToExtension,
 	supportedDocumentMimeTypes,
-} from "../../tools/docParser";
+} from "../../../../routes/newDocParser";
 import type { MessageFile } from "$lib/types/Message";
 import type { EndpointMessage } from "../endpoints";
 
